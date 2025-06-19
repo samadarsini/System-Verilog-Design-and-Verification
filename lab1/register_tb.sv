@@ -1,37 +1,57 @@
-module register_tb;
-logic [7:0]out;
-logic [7:0]data;
-logic clk;
-logic enable;
-logic rst_;
-
+// Code your testbench here
+// or browse Examples
+module register_test;
 timeunit 1ns;
 timeprecision 100ps;
-  
-register reg1(.out(out),.clk(clk),.enable(enable),.rst_(rst_),.data(data));
 
-initial clk=0;
-always #5 clk=~clk;
+logic [7:0]   out  ;
+logic [7:0]   data ;
+logic         enable  ;
+logic         rst_ = 1'b1;
+logic         clk = 1'b1;
 
-  
-initial begin
-  $dumpfile("register.vcd");
-  $dumpvars(0,register_tb);
+`define PERIOD 10
 
-$monitor("At time t=%0t, clk=%b, rst_ =%b, enable= %b, data =%d, out=%d", $time, clk, rst_, enable, data, out);
+always
+    #(`PERIOD/2) clk = ~clk;
 
-enable=0; rst_=0;
+// INSTANCE register 
+  register r1 (.out(out), .clk(clk), .enable(enable), .rst_(rst_), .data(data));
 
-#5  rst_=1; enable=1; data=5;
-#5  rst_=1; enable=1; data=5;
-#5  rst_=1; enable=0; data=9;
-#5  rst_=1; enable=1; data=10;
-#5  rst_=1; enable=1; data=10;
-#5  rst_=0; enable=0; data=5;
-#5  rst_=1; enable=1; data=5;
-#5  rst_=1; enable=0; data=9;
-#5  rst_=1; enable=1; data=10;
-#10 $finish;
-end
+  // Monitor Results
+  initial
+    begin
+     $timeformat ( -9, 1, " ns", 9 );
+     $monitor ( "time=%t enable=%b rst_=%b data=%h out=%h",
+	        $time,   enable,   rst_,   data,   out );
+     #(`PERIOD * 99)
+     $display ( "REGISTER TEST TIMEOUT" );
+     $finish;
+    end
+
+// Verify Results
+  task expect_test (input [7:0] expects) ;
+    if ( out !== expects )
+      begin
+        $display ( "out=%b, should be %b", out, expects );
+        $display ( "REGISTER TEST FAILED" );
+        $finish;
+      end
+  endtask
+
+  initial
+    begin
+      @(negedge clk)
+      { rst_, enable, data } = 10'b1_X_XXXXXXXX; @(negedge clk) expect_test ( 8'hXX );
+      { rst_, enable, data } = 10'b0_X_XXXXXXXX; @(negedge clk) expect_test ( 8'h00 );
+      { rst_, enable, data } = 10'b1_0_XXXXXXXX; @(negedge clk) expect_test ( 8'h00 );
+      { rst_, enable, data } = 10'b1_1_10101010; @(negedge clk) expect_test ( 8'hAA );
+      { rst_, enable, data } = 10'b1_0_01010101; @(negedge clk) expect_test ( 8'hAA );
+      { rst_, enable, data } = 10'b0_X_XXXXXXXX; @(negedge clk) expect_test ( 8'h00 );
+      { rst_, enable, data } = 10'b1_0_XXXXXXXX; @(negedge clk) expect_test ( 8'h00 );
+      { rst_, enable, data } = 10'b1_1_01010101; @(negedge clk) expect_test ( 8'h55 );
+      { rst_, enable, data } = 10'b1_0_10101010; @(negedge clk) expect_test ( 8'h55 );
+      $display ( "REGISTER TEST PASSED" );
+      $finish;
+    end
 endmodule
-
